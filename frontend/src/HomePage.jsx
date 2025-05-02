@@ -2,11 +2,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
+import e from "cors";
 
 function HomePage() {
   const [notes, setNotes] = useState([]);
   const [noteText, setNoteText] = useState("");
+  const [title, setTitle] = useState("");
   const [user, setUser] = useState(null);
+  const [editingNoteId, setEditingNoteId] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -37,7 +40,9 @@ function HomePage() {
       })
       .then((data) => {
         console.log("Notes data:", data);
-        setNotes(Array.isArray(data) ? data : []);
+        if (Array.isArray(data)) {
+          setNotes(data);
+        }
       })
       .catch((err) => console.error("Lỗi khi tải ghi chú:", err));
   }, [navigate]);
@@ -52,7 +57,7 @@ function HomePage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${userToken}`,
         },
-        body: JSON.stringify({ content: noteText }),
+        body: JSON.stringify({ title: title, content: noteText }),
       });
 
       if (!res.ok) {
@@ -85,6 +90,64 @@ function HomePage() {
     } catch (err) {
       console.error("Lỗi khi xóa ghi chú:", err);
     }
+  };
+
+  const updateNote = async (id) => {
+    const noteInfor = notes.find((note) => note.id === id);
+    console.log(noteInfor);
+    console.log(noteInfor.created_at);
+    console.log(title, noteText);
+    try {
+      // Nếu đang ở chế độ chỉnh sửa, thực hiện cập nhật
+      if (editingNoteId === id) {
+        const userToken = localStorage.getItem("token");
+        const res = await fetch(`http://localhost:3001/${id}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${userToken}`,
+          },
+          body: JSON.stringify({
+            title: title,
+            content: noteText,
+            createDay: noteInfor.created_at,
+          }),
+        });
+
+        if (!res.ok) {
+          throw new Error(`Server trả về lỗi: ${res.status}`);
+        }
+
+        const updatedNote = await res.json();
+        setNotes(
+          notes.map((note) =>
+            note.id === id ? { ...note, title: title, content: noteText } : note
+          )
+        );
+
+        // Đặt lại trạng thái chỉnh sửa
+        setEditingNoteId(null);
+        setNoteText("");
+        setTitle("");
+      }
+      // Nếu không ở chế độ chỉnh sửa, chuyển sang chế độ chỉnh sửa
+      else {
+        const noteToEdit = notes.find((note) => note.id === id);
+        if (noteToEdit) {
+          setEditingNoteId(id);
+          setTitle(noteToEdit.title || "");
+          setNoteText(noteToEdit.content || "");
+        }
+      }
+    } catch (err) {
+      console.error("Lỗi khi cập nhật ghi chú:", err);
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingNoteId(null);
+    setNoteText("");
+    setTitle("");
   };
 
   const handleLogout = () => {
@@ -214,23 +277,54 @@ function HomePage() {
             <div className="bg-white rounded-lg shadow overflow-hidden">
               <div className="p-6 border-b">
                 <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                  Danh sách ghi chú
+                  {editingNoteId ? "Chỉnh sửa ghi chú" : "Danh sách ghi chú"}
                 </h2>
-                <div className="flex mb-4">
+                <div className="flex flex-col mb-4">
                   <input
                     type="text"
-                    className="flex-1 p-2 border rounded-l focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="Nhập ghi chú..."
-                    value={noteText}
-                    onChange={(e) => setNoteText(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && handleAddNote()}
+                    className="w-full p-2 border rounded-t focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Tiêu đề ghi chú..."
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
                   />
-                  <button
-                    className="bg-indigo-600 text-white px-4 py-2 rounded-r hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                    onClick={handleAddNote}
-                  >
-                    Thêm
-                  </button>
+                  <div className="flex">
+                    <input
+                      type="text"
+                      className="flex-1 p-2 border border-t-0 rounded-bl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      placeholder="Nhập ghi chú..."
+                      value={noteText}
+                      onChange={(e) => setNoteText(e.target.value)}
+                      onKeyPress={(e) =>
+                        e.key === "Enter" &&
+                        (editingNoteId
+                          ? updateNote(editingNoteId)
+                          : handleAddNote())
+                      }
+                    />
+                    {editingNoteId ? (
+                      <div className="flex">
+                        <button
+                          className="bg-indigo-600 text-white px-4 py-2 hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                          onClick={() => updateNote(editingNoteId)}
+                        >
+                          Lưu
+                        </button>
+                        <button
+                          className="bg-gray-500 text-white px-4 py-2 rounded-br hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                          onClick={cancelEdit}
+                        >
+                          Hủy
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        className="bg-indigo-600 text-white px-4 py-2 rounded-br hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                        onClick={handleAddNote}
+                      >
+                        Thêm
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -261,10 +355,22 @@ function HomePage() {
                         key={note.id}
                         className="flex justify-between items-center py-3"
                       >
-                        <span className="text-gray-800">{note.content}</span>
-                        <div className="flex space-x-2">
+                        <div className="flex-1">
+                          {note.title && (
+                            <h4 className="font-medium text-gray-900 mb-1">
+                              {note.title}
+                            </h4>
+                          )}
+                          <p className="text-gray-800">{note.content}</p>
+                        </div>
+                        <div className="flex space-x-2 ml-4">
                           <button
                             className="text-gray-400 hover:text-indigo-600 focus:outline-none"
+                            onClick={() => {
+                              editingNoteId
+                                ? cancelEdit()
+                                : updateNote(note.id);
+                            }}
                             title="Chỉnh sửa"
                           >
                             <svg

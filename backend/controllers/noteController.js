@@ -27,9 +27,11 @@ export const home = async (req, res) => {
 export const getNotes = async (req, res) => {
   try {
     const username = req.user.username; // Lấy tên người dùng từ token đã giải mã
-    const [notes] = await db.query("SELECT * FROM notes WHERE username = ?", [
-      username,
-    ]);
+    const [notes] = await db.query(
+      "SELECT * FROM notes WHERE username = ? AND is_deleted = 1",
+      [username]
+    );
+
     res.json(notes); // Trả về danh sách ghi chú của người dùng
   } catch (err) {
     console.error("Lỗi khi lấy danh sách ghi chú:", err);
@@ -37,12 +39,60 @@ export const getNotes = async (req, res) => {
   }
 };
 
+export const updateNote = async (req, res) => {
+  const { id } = req.params;
+  const { title, content } = req.body;
+  const username = req.user.username; // Lấy tên người dùng từ token đã giải mã
+  const { createDay } = req.body; // Lấy ngày tạo ghi chú từ body
+  const createD = new Date(createDay)
+    .toISOString()
+    .slice(0, 19)
+    .replace("T", " ");
+  console.log("Ngày tạo ghi chú:", createD);
+
+  try {
+    db.query("UPDATE notes SET is_deleted = 0 WHERE id = ? AND username = ?", [
+      id,
+      username,
+    ]);
+
+    const [note] = await db.query(
+      "INSERT INTO notes (username, title, content, created_at, is_deleted) VALUES (?, ?, ?, ?, 1)",
+      [username, title, content, createD]
+    );
+    if (note.affectedRows === 0) {
+      return res.status(404).json({ message: "Ghi chú không tồn tại" });
+    }
+    return res
+      .status(200)
+      .json({ message: "Ghi chú đã được cập nhật", note: note });
+  } catch (err) {
+    console.error("Lỗi khi cập nhật ghi chú:", err);
+    return res.status(500).json({ message: "Lỗi khi cập nhật ghi chú" });
+  }
+};
+
 export const createNote = async (req, res) => {
   const { title, content } = req.body;
+  const username = req.user.username; // Lấy tên người dùng từ token đã giải mã
+
   try {
-    const newNote = await noteService.createNote(title, content);
-    res.status(201).json(newNote);
+    const newNote = await db.query(
+      "INSERT INTO notes (username, title, content, is_deleted) VALUES (?, ?, ?, 1)",
+      [username, title, content]
+    );
+    res.status(201).json({
+      success: true,
+      message: "Ghi chú đã được tạo",
+      note: {
+        id: newNote.insertId,
+        title: title,
+        content: content,
+        username: username,
+      },
+    });
   } catch (err) {
+    console.error("Lỗi khi tạo ghi chú:", err);
     res.status(500).json({ message: "Lỗi khi tạo ghi chú" });
   }
 };
@@ -50,8 +100,15 @@ export const createNote = async (req, res) => {
 export const deleteNote = async (req, res) => {
   const { id } = req.params;
   try {
-    await noteService.deleteNote(id);
-    res.json({ message: "Đã xoá ghi chú" });
+    const username = req.user.username; // Lấy tên người dùng từ token đã giải mã
+    const [result] = await db.query(
+      "UPDATE notes SET is_deleted = 0 WHERE id = ? AND username = ?",
+      [id, username]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Ghi chú không tồn tại" });
+    }
+    res.json({ message: "Ghi chú đã được xoá" });
   } catch (err) {
     res.status(500).json({ message: "Lỗi khi xoá ghi chú" });
   }

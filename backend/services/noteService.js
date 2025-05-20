@@ -60,7 +60,7 @@ export const login = async (username, password) => {
       "SELECT * FROM accounts WHERE username = ?",
       [username]
     );
-
+    console.log(users);
     if (!users || users.length === 0) {
       throw new Error("Sai tên đăng nhập hoặc mật khẩu");
     }
@@ -72,7 +72,6 @@ export const login = async (username, password) => {
     if (!isMatch) {
       throw new Error("Sai mật khẩu");
     }
-
     // Trả về thông tin người dùng nếu đăng nhập thành công
     return { id: user.id, username: user.username, email: user.email };
   } catch (err) {

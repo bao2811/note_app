@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 
 // Component giao diện đăng nhập/đăng ký
@@ -12,6 +12,31 @@ const AuthPage = ({ isLogin }) => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkLogin = async () => {
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          const res = await fetch("http://localhost:3001/checkAuth", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ token }),
+          });
+          console.log("Response:", res);
+          if (res.ok) {
+            navigate("/home");
+          }
+        } catch (error) {
+          console.error("Lỗi kiểm tra token:", error);
+        }
+      }
+    };
+    checkLogin();
+  }, []);
 
   // Hàm xử lý nút quay lại
   const handleGoBack = () => {
@@ -97,6 +122,7 @@ const AuthPage = ({ isLogin }) => {
       if (res.ok && data.success) {
         // Sửa: Lấy token từ data thay vì response không tồn tại
         const token = data.token;
+        console.log("Token:", token);
         localStorage.setItem("token", token);
         navigate("/home");
       } else {

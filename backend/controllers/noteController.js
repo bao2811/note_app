@@ -3,6 +3,7 @@ import db from "../config/db.js";
 import bcrypt from "bcrypt";
 import express from "express";
 import jwt from "jsonwebtoken";
+import { jwtDecode } from "jwt-decode";
 
 // Hàm tạo token
 const generateToken = (user) => {
@@ -44,10 +45,11 @@ export const updateNote = async (req, res) => {
   const { title, content } = req.body;
   const username = req.user.username; // Lấy tên người dùng từ token đã giải mã
   const { createDay } = req.body; // Lấy ngày tạo ghi chú từ body
-  const createD = new Date(createDay)
-    .toISOString()
-    .slice(0, 19)
-    .replace("T", " ");
+  const createD = new Date(createDay);
+  if (isNaN(createD.getTime())) {
+    createD = new Date(); // Nếu không hợp lệ, sử dụng ngày hiện tại
+  }
+  createD.toISOString().slice(0, 19).replace("T", " ");
   console.log("Ngày tạo ghi chú:", createD);
 
   try {
@@ -114,6 +116,36 @@ export const deleteNote = async (req, res) => {
   }
 };
 
+export const checkAuth = async (req, res) => {
+  const token = req.body.token; // Lấy token từ body
+  const decoded = jwt.verify(token, "SECRET_KEY");
+  console.log("Giải mã token:", decoded);
+  if (!token) {
+    return res.status(401).json({ message: "Không có token" });
+  }
+
+  try {
+    const user = jwtDecode(token);
+    console.log("Người dùng từ token:", user);
+    const check = await noteService.login(user.username, user.password);
+    if (!check) {
+      return res.status(401).json({ message: "Token không hợp lệ" });
+    }
+    // Nếu token hợp lệ, trả về thông tin người dùng
+    res.json({
+      success: true,
+      message: "Token hợp lệ",
+      user: {
+        username: user.username,
+        email: user.email,
+      },
+    });
+  } catch (err) {
+    console.error("Lỗi khi xác thực:", err);
+    res.status(500).json({ message: "Lỗi khi xác thực" });
+  }
+};
+
 export const login = async (req, res) => {
   const { username, password } = req.body;
 
@@ -122,10 +154,9 @@ export const login = async (req, res) => {
     if (!username || !password) {
       return res.status(400).json({ message: "Vui lòng điền đủ thông tin" });
     }
-
     // Gọi hàm login từ service
     const user = await noteService.login(username, password);
-
+    console.log("Người dùng:", user);
     const token = generateToken(user); // Tạo token cho người dùng
 
     // Trả về thông tin người dùng nếu đăng nhập thành công

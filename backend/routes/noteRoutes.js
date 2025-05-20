@@ -8,6 +8,7 @@ router.use("/home", authMiddleware, noteController.home); // ✅ Đúng hàm
 router.get("/note", authMiddleware, noteController.getNotes); // Thêm route để lấy danh sách ghi chú
 router.post("/note", authMiddleware, noteController.createNote);
 router.delete("/:id", authMiddleware, noteController.deleteNote);
+router.post("checkAuth", authMiddleware, noteController.checkAuth);
 router.post("/:id", authMiddleware, noteController.updateNote); // ✅ Đúng hàm
 router.post("/auth/register", noteController.register);
 router.post("/auth/login", noteController.login); // ✅ Đúng hàm

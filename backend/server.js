@@ -31,17 +31,6 @@ app.use(errorHandler);
 
 // Thêm route catch-all cho SPA
 // Điều hướng tất cả các request GET không xác định về index.html
-app.get("/auth/login", (req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/index.html"));
-});
-
-app.get("/auth/register", (req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/index.html"));
-});
-
-app.get("/home", (req, res) => {
-  res.sendFile(path.join(__dirname, "../frontend/index.html"));
-});
 
 // app.get("/", (req, res) => {
 //   const acceptHeader = req.headers.accept || "";
